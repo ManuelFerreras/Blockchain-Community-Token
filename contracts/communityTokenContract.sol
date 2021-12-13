@@ -735,6 +735,7 @@ contract communityToken is IERC20, Ownable {
     uint8 private constant _decimals = 18; // Tokens decimals
     uint256 private constant MAX = ~uint256(0);
     uint256 private constant _tTotal = _tokenSupply * 10 ** 18;
+    uint256 public maxAccountBalance;
 
     
     mapping (address => uint256) private _tOwned;
@@ -762,6 +763,7 @@ contract communityToken is IERC20, Ownable {
     event burnFeeChanged(uint256);
     event addressFeeChanged(uint256);
     event liquidityFeeChanged(uint256);
+    event maxAccountBalanceModifiedEvent(uint256);
 
 
     constructor (address _addressWallet, address _liquidityWallet, uint256 _addressFee, uint256 _burnFee, uint256 _liquidityFee) {
@@ -774,6 +776,8 @@ contract communityToken is IERC20, Ownable {
         addressFee = _addressFee;
         burnFee = _burnFee;
         liquidityFee = _liquidityFee;
+
+        maxAccountBalance = _tTotal.div(100).mul(3);
 
 
         IUniswapV2Router02 _uniswapV2Router = IUniswapV2Router02(0x10ED43C718714eb63d5aA57B78B54704E256024E); // Mainnet
@@ -880,6 +884,13 @@ contract communityToken is IERC20, Ownable {
 
     }
 
+    function changeMaxBalanceAmount(uint256 _newAmount) public onlyOwner {
+        require(_newAmount > 0 && _newAmount <= _tTotal);
+        maxAccountBalance = _newAmount;
+
+        emit maxAccountBalanceModifiedEvent(_newAmount);
+    }
+
     function name() public view returns (string memory) {
         return _name;
     }
@@ -972,6 +983,10 @@ contract communityToken is IERC20, Ownable {
         require(sender != address(0), "BEP20: transfer from the zero address");
         require(recipient != address(0), "BEP20: transfer to the zero address");
         require(amount > 0, "Transfer amount must be greater than zero");
+
+        if (!_isExcluded[recipient]) {
+            require((balanceOf(recipient) + amount) <= maxAccountBalance, "Receiver Wallet has Reached Limit Balance.");
+        }
         
         if (_isExcluded[sender] && !_isExcluded[recipient]) {
             _transferFromExcluded(sender, recipient, amount);
